@@ -83,6 +83,8 @@ var gameTimeInterval;
 var resetFrom = "Nothing"; //For achievements or special conditions
 var reset = "Nothing"; //For actual resetting
 var updateRate = 20;
+const ticksPerSecond = 20;
+const msPerTick = 1000 / ticksPerSecond
 
 const updateMessages = {
   "0.5.2": "- Implemented a bunch of suggestions<br>- Fixed 3+ bugs",
@@ -251,9 +253,11 @@ function simulateTime(time, active, showBox) {
   if (showBox) {showId("offlineBox")}
   di("offlineTime").textContent = showTime(nd(time));
   runGameTime(true, 1);
-  let ticksPerSecond = 20;
-  let ticks = Math.floor(time/1000*ticksPerSecond);
-  if (ticks > 72000) {ticks = 72000}
+  
+  let ticks = Math.floor(time/msPerTick);
+  const max_ticks = 72000
+
+  //if (ticks > max_ticks) {ticks = max_ticks}
   var userStart = JSON.parse(JSON.stringify(user));
   fixnd(userStart);
   let hides = ["IP", "PP", "PPCount"];
@@ -261,11 +265,51 @@ function simulateTime(time, active, showBox) {
   showId("offlineLoading");
   setTimeout(() => {
     let ticksDone = 0;
-    for (ticksDone=0; ticksDone<ticks; ticksDone++) {runGameTime(false, 1000/ticksPerSecond)}
+    if(ticks <= max_ticks){
+      for (ticksDone=0; ticksDone<ticks; ticksDone++) {runGameTime(false, msPerTick)}
+    }else{
+      let extra_ticks, extra_time; // ticks to use, time needed
+      if(user.automation.Prestige.enabled){ // assumes cannot be enabled while locked
+        const giveUpTicks = 1200 // assume we will never auto-prestige if the first one is too slow
+        let prestigeCount = user.pp.count
+        //  Run until known state, prestige reset in this case
+        for (ticksDone=0; ticksDone<giveUpTicks && user.pp.count == prestigeCount; ticksDone++) {runGameTime(false, msPerTick)}
+        if(user.pp.count != prestigeCount){
+          let prevTicksDone = ticksDone;
+          let scaledTicksDone = ticksDone;
+          prestigeCount = user.pp.count;
+          for (scaledTicksDone = ticksDone; ticksDone<max_ticks && scaledTicksDone < ticks; ticksDone++, scaledTicksDone++) {
+            runGameTime(false, msPerTick)
+            if(user.pp.count != prestigeCount){ // Multiply prestige rewards while simulating
+              const pTicks = ticksDone - prevTicksDone
+              const scale = Math.floor((ticks - scaledTicksDone + pTicks)/(max_ticks - ticksDone + pTicks))
+              const bonus = scale - 1
+              giveMoney("PP", user.pp.lastGain * bonus);
+              user.pp.count += bonus;
+              
+              prevTicksDone = ticksDone;
+              scaledTicksDone += pTicks * bonus;
+              prestigeCount = user.pp.count;
+              user.time.played+=pTicks * bonus * msPerTick
+            }
+          }
+          extra_time = time - scaledTicksDone * msPerTick
+          extra_ticks = Math.floor(Math.min(extra_time/msPerTick, giveUpTicks));// TODO what should this really be?
+        }else{
+          extra_ticks = max_ticks - ticksDone
+          extra_time = time - ticksDone * msPerTick
+        }
+      }else{
+        extra_ticks = max_ticks
+        extra_time = time
+      }
+      // Simple time scaling fall-back when assumed to be sufficient
+      for (ticksDone = 0; ticksDone<extra_ticks; ticksDone++) {runGameTime(false, extra_time/extra_ticks)}
+    }
     
     if (user.ip.sac.gt(userStart.ip.sac)) {showId("offlineIP"); di("offlineIPx").textContent = e("d", user.ip.sac.minus(userStart.ip.sac), 2, 0)}
     if (user.pp.sac.gt(userStart.pp.sac)) {showId("offlinePP"); di("offlinePPx").textContent = e("d", user.pp.sac.minus(userStart.pp.sac), 2, 0)}
-    
+    console.log("discrepancy: " + (time + userStart.time.played - user.time.played))
     if (user.pp.count > userStart.pp.count) {showId("offlinePPCount"); di("offlinePPCountx").textContent = e("d", nd(user.pp.count-userStart.pp.count), 2, 0)}
     hideId("offlineLoading");
   }, (1000/updateRate));
@@ -275,13 +319,13 @@ di("closeOfflineBox").addEventListener("click", () => {hideId("offlineBox")});
 
 let sacrificeIPTime = 0;
 let prestigeTime = 0;
+
 function runGameTime(active, time) {
   //Set time diff
   let thisUpdate = Date.now();
   if (typeof time == "undefined") {time = Math.min(thisUpdate-user.time.lastUpdate, 43200000)}
-  let ticksPerSecond = 20;
   /*let ticks = Math.floor(time*ticksPerSecond/1000);*/
-  let ticks = time*ticksPerSecond/1000;
+  let tickScale = time/msPerTick;
   
   
   
@@ -462,7 +506,7 @@ function runGameTime(active, time) {
   
   //Run passive gain
   if (user.automation.IP.enabled) {
-    let bulk = getAutomationRate("IP").divide(ticksPerSecond).times(ticks);
+    let bulk = getAutomationRate("IP").divide(ticksPerSecond).times(tickScale);
     let multi = nd(1);
     /*if (user.pp.pt.cells.includes("pt5-2")) {
       multi = multi.times(getClickMulti());
@@ -481,7 +525,7 @@ function runGameTime(active, time) {
         if (increment[name].auto) {
           let ratio = getIncrementRatio(name, i);
           let canBuy = Decimal.affordGeometricSeries(user.ip.current, increment[name].baseCost, ratio, user.ip.increment[name].bought[i]);
-          let bulk = getAutomationRate("Increment"+name).divide(ticksPerSecond).times(ticks);
+          let bulk = getAutomationRate("Increment"+name).divide(ticksPerSecond).times(tickScale);
           if (name == "E") {bulk = bulk.floor()}
           let buy;
           if (canBuy.gte(bulk)) {buy = bulk}
@@ -500,7 +544,7 @@ function runGameTime(active, time) {
           }
         }
         else {
-          let bulk = getAutomationRate("Increment"+name).divide(ticksPerSecond).times(ticks);
+          let bulk = getAutomationRate("Increment"+name).divide(ticksPerSecond).times(tickScale);
           for (let k=0; k<bulk; k++) {
             if (!buyIncrement(name, i)) {break}
           }
@@ -511,7 +555,7 @@ function runGameTime(active, time) {
   
   //Sacrifice
   if (user.automation.SacrificeIP.enabled) {
-    let bulk = getAutomationRate("SacrificeIP").divide(ticksPerSecond).times(ticks);
+    let bulk = getAutomationRate("SacrificeIP").divide(ticksPerSecond).times(tickScale);
     if (bulk < 1) {
       sacrificeIPTime += bulk.toNumber();
       if (sacrificeIPTime >= 1) {
@@ -537,7 +581,7 @@ function runGameTime(active, time) {
   
   //Prestige
   if (user.automation.Prestige.enabled) {
-    let bulk = getAutomationRate("Prestige").divide(ticksPerSecond).times(ticks);
+    let bulk = getAutomationRate("Prestige").divide(ticksPerSecond).times(tickScale);
     if (bulk < 1) {
       prestigeTime += bulk.toNumber();
       let gain = getPPGain();
