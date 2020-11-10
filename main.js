@@ -271,17 +271,18 @@ function simulateTime(time, active, showBox) {
       let extra_ticks, extra_time; // ticks to use, time needed
       if(user.automation.Prestige.enabled){ // assumes cannot be enabled while locked
         const giveUpTicks = 1200 // assume we will never auto-prestige if the first one is too slow
-        let prestigeCount = user.pp.count
+        let prestigeCount = user.pp.count // used to detect prestiges
         //  Run until known state, prestige reset in this case
         for (ticksDone=0; ticksDone<giveUpTicks && user.pp.count == prestigeCount; ticksDone++) {runGameTime(false, msPerTick)}
         if(user.pp.count != prestigeCount){
-          let prevTicksDone = ticksDone;
-          let scaledTicksDone = ticksDone;
+          let prevTicksDone = ticksDone; // ticks used at last prestige
+          let scaledTicksDone = ticksDone; // current `scaled` ticks executed
           prestigeCount = user.pp.count;
           for (scaledTicksDone = ticksDone; ticksDone<max_ticks && scaledTicksDone < ticks; ticksDone++, scaledTicksDone++) {
             runGameTime(false, msPerTick)
-            if(user.pp.count != prestigeCount){ // Multiply prestige rewards while simulating
-              const pTicks = ticksDone - prevTicksDone
+            if(user.pp.count != prestigeCount){ // Multiply prestige rewards during simulation
+              const pTicks = ticksDone - prevTicksDone // length of prestige in ticks
+              // scale is prevScaledTicksDone / prevTicksDone
               const scale = Math.floor((ticks - scaledTicksDone + pTicks)/(max_ticks - ticksDone + pTicks))
               const bonus = scale - 1
               giveMoney("PP", user.pp.lastGain * bonus);
@@ -309,7 +310,7 @@ function simulateTime(time, active, showBox) {
     
     if (user.ip.sac.gt(userStart.ip.sac)) {showId("offlineIP"); di("offlineIPx").textContent = e("d", user.ip.sac.minus(userStart.ip.sac), 2, 0)}
     if (user.pp.sac.gt(userStart.pp.sac)) {showId("offlinePP"); di("offlinePPx").textContent = e("d", user.pp.sac.minus(userStart.pp.sac), 2, 0)}
-    console.log("discrepancy: " + (time + userStart.time.played - user.time.played))
+    //console.log("discrepancy: " + (time + userStart.time.played - user.time.played))
     if (user.pp.count > userStart.pp.count) {showId("offlinePPCount"); di("offlinePPCountx").textContent = e("d", nd(user.pp.count-userStart.pp.count), 2, 0)}
     hideId("offlineLoading");
   }, (1000/updateRate));
