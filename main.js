@@ -263,48 +263,35 @@ function firstDiff(ind){
 }
 
 function simulateTime(time, active, showBox) {
-  let hack = str => str.replace(/,"time":{[^}]+}/, '')
-  let doCheck = (c1, c2) => {globCheck = hack(c1); globCheck2 = hack(c2); console.log(globCheck==globCheck2? 'good!': 'not good...')}
   if (typeof showBox == "undefined") {showBox = true}
   if (showBox) {showId("offlineBox")}
   di("offlineTime").textContent = showTime(nd(time));
   runGameTime(true, 1);
   let ticksPerSecond = 20;
   let ticks = Math.floor(time/1000*ticksPerSecond);
-  if (ticks > 72000) {ticks = 72000}
   var userStart = JSON.parse(JSON.stringify(user));
   fixnd(userStart);
   let worker = new Worker("worker.js")
-  let check = null
-  worker.onmessage = function(e){
-    check = e.data
-    worker.terminate()
+  worker.onmessage = function(event){
+    di("offlineTimeProgress").textContent = showTime(1000/ticksPerSecond * event.data.ticksDone)
     
-    if(check2 != null){
-      doCheck(check, check2)
+    if(event.data.done){
+      user = JSON.parse(event.data.user)
+      fixnd(user)
+      worker.terminate()
+      if (user.ip.sac.gt(userStart.ip.sac)) {showId("offlineIP"); di("offlineIPx").textContent = e("d", user.ip.sac.minus(userStart.ip.sac), 2, 0)}
+      if (user.pp.sac.gt(userStart.pp.sac)) {showId("offlinePP"); di("offlinePPx").textContent = e("d", user.pp.sac.minus(userStart.pp.sac), 2, 0)}
+
+      if (user.pp.count > userStart.pp.count) {showId("offlinePPCount"); di("offlinePPCountx").textContent = e("d", nd(user.pp.count-userStart.pp.count), 2, 0)}
+      hideId("offlineLoading");
+      gameTimeInterval = setInterval(() => {runGameTime(true)}, (1000/updateRate));
     }
   }
+  clearInterval(gameTimeInterval);
   worker.postMessage({userS: JSON.stringify(user), ticks, mspt: 1000/ticksPerSecond})
   let hides = ["IP", "PP", "PPCount"];
   for (let i=0; i<hides.length; i++) {hideId("offline"+hides[i])}
   showId("offlineLoading");
-  
-  let check2 = null
-  clearInterval(gameTimeInterval);
-  setTimeout(() => {
-    let ticksDone = 0;
-    for (ticksDone=0; ticksDone<ticks; ticksDone++) {runGameTime(false, 1000/ticksPerSecond)}
-    check2 = JSON.stringify(user)
-    if(check != null){
-      doCheck(check, check2)
-    }
-    if (user.ip.sac.gt(userStart.ip.sac)) {showId("offlineIP"); di("offlineIPx").textContent = e("d", user.ip.sac.minus(userStart.ip.sac), 2, 0)}
-    if (user.pp.sac.gt(userStart.pp.sac)) {showId("offlinePP"); di("offlinePPx").textContent = e("d", user.pp.sac.minus(userStart.pp.sac), 2, 0)}
-    
-    if (user.pp.count > userStart.pp.count) {showId("offlinePPCount"); di("offlinePPCountx").textContent = e("d", nd(user.pp.count-userStart.pp.count), 2, 0)}
-    hideId("offlineLoading");
-  }, (1000/updateRate));
-  gameTimeInterval = setInterval(() => {runGameTime(true)}, (1000/updateRate));
 }
 di("offlineBox").addEventListener("click", (event) => {event.stopPropagation()});
 di("closeOfflineBox").addEventListener("click", () => {hideId("offlineBox")});
@@ -812,7 +799,7 @@ document.addEventListener("unload", () => {save()});
 di("loading").addEventListener("click", (event) => {event.stopPropagation()});
 loadGame();
 intervals();
-refreshGameInterval();
+//refreshGameInterval();
 
 //Temp
 /*progress();*/

@@ -33,6 +33,11 @@ self.onmessage = function(e){
   let {userS, ticks, mspt} = e.data
   user = JSON.parse(userS)
   fixnd(user)
-  for (ticksDone=0; ticksDone<ticks; ticksDone++) {runGameTime(false, mspt)}
-  self.postMessage(JSON.stringify(user))
+  for (ticksDone=0; ticksDone<ticks; ticksDone++) {
+    if(ticksDone % 1200 == 0){
+      self.postMessage({done: false, ticksDone})
+    }
+    runGameTime(false, mspt)
+  }
+  self.postMessage({done: true, user: JSON.stringify(user), ticksDone: ticks})
 }
