@@ -83,6 +83,7 @@ var gameTimeInterval;
 var resetFrom = "Nothing"; //For achievements or special conditions
 var reset = "Nothing"; //For actual resetting
 var lastClicked;
+var cancelOffline = false;
 
 const updateRate = 20;
 const updateMessages = {
@@ -275,8 +276,8 @@ function simulateTime(time, active, showBox) {
   worker.onmessage = function(event){
     di("offlineTimeProgress").textContent = showTime(1000/ticksPerSecond * event.data.ticksDone)
     
-    if(event.data.done){
-      user = JSON.parse(event.data.user)
+    if(event.data.done || cancelOffline){
+      user = event.data.user
       fixnd(user)
       worker.terminate()
       if (user.ip.sac.gt(userStart.ip.sac)) {showId("offlineIP"); di("offlineIPx").textContent = e("d", user.ip.sac.minus(userStart.ip.sac), 2, 0)}
@@ -284,16 +285,22 @@ function simulateTime(time, active, showBox) {
 
       if (user.pp.count > userStart.pp.count) {showId("offlinePPCount"); di("offlinePPCountx").textContent = e("d", nd(user.pp.count-userStart.pp.count), 2, 0)}
       hideId("offlineLoading");
+      di("closeOfflineBox").innerText = "Close"
       gameTimeInterval = setInterval(() => {runGameTime(true)}, (1000/updateRate));
     }
   }
   clearInterval(gameTimeInterval);
-  worker.postMessage({userS: JSON.stringify(user), ticks, mspt: 1000/ticksPerSecond})
+  cancelOffline = false
+  breaknd(user)
+  worker.postMessage({user, ticks, mspt: 1000/ticksPerSecond})
+  fixnd(user)
   let hides = ["IP", "PP", "PPCount"];
   for (let i=0; i<hides.length; i++) {hideId("offline"+hides[i])}
+  di("closeOfflineBox").innerText = "Hide"
   showId("offlineLoading");
 }
 di("offlineBox").addEventListener("click", (event) => {event.stopPropagation()});
+di("stopOfflineBox").addEventListener("click", () => {cancelOffline = true});
 di("closeOfflineBox").addEventListener("click", () => {hideId("offlineBox")});
 
 let sacrificeIPTime = 0;

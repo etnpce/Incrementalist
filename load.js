@@ -16,6 +16,23 @@ function fixnd(obj) {
   if (typeof obj.pp.lastGain != "undefined") {obj.pp.lastGain = nd(obj.pp.lastGain)}
 }
 
+function breaknd(obj) {
+  if (typeof obj.ip.current != "undefined") {obj.ip.current += ''}
+  if (typeof obj.ip.sac != "undefined") {obj.ip.sac += ''}
+  if (typeof obj.ip.total != "undefined") {obj.ip.total += ''}
+  if (typeof obj.ip.highest != "undefined") {obj.ip.highest += ''}
+  if (typeof obj.ip.infinite != "undefined") {obj.ip.infinite += ''}
+  if (typeof obj.ip.equationClicks != "undefined") {obj.ip.equationClicks += ''}
+  if (typeof obj.pp.current != "undefined") {obj.pp.current += ''}
+  if (typeof obj.pp.sac != "undefined") {obj.pp.sac += ''}
+  if (typeof obj.pp.total != "undefined") {obj.pp.total += ''}
+  if (typeof obj.pp.highest != "undefined") {obj.pp.highest += ''}
+  if (typeof obj.pp.infinite != "undefined") {obj.pp.infinite += ''}
+  if (typeof obj.pp.pt.refundAmount != "undefined") {obj.pp.pt.refundAmount += ''}
+  if (typeof obj.automation.Prestige.at != "undefined") {obj.automation.Prestige.at += ''}
+  if (typeof obj.pp.lastGain != "undefined") {obj.pp.lastGain += ''}
+}
+
 //Load
 function loadGame() {
   let data = JSON.parse(localStorage.getItem("user"));
